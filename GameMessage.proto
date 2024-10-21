@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package game;
+
+option go_package = "/Messages";
+
+message NavV3 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+message PathTest {
+  repeated NavV3 paths = 1;
+}
+
+message PlayerPosition {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+  float fx = 4;
+  float fy = 5;
+  float fz = 6;
+  string player_id = 7;
+  float speed = 8;
+  float rotation_y = 9;
+}
+
+message SpawnMyPlayer {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+  float rotation_y = 4;
+}
+
+message SpawnOtherPlayer {
+  string playerId = 1;
+  float x = 2;
+  float y = 3;
+  float z = 4;
+  float rotation_y = 5;
+}
+
+message ChatMessage {
+  string sender = 1;
+  string content = 2;
+}
+
+message LoginMessage {
+  string playerId = 1;    
+}
+
+message LogoutMessage {
+  string playerId = 1;    
+}
+
+message GameMessage {
+  oneof message {
+    PlayerPosition player_position = 1;
+    ChatMessage chat = 2;
+    LoginMessage login = 3;
+    SpawnMyPlayer spawnMyPlayer = 4;
+    SpawnOtherPlayer spawnOtherPlayer = 5;
+    LogoutMessage logout = 6;
+    PathTest pathTest = 7;
+  }
+} 
