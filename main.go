@@ -15,12 +15,12 @@ import (
 
 func main() {
 
-	listener, err := net.Listen("tcp", ":8888")
+	listener, err := net.Listen("tcp", ":9090")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 	defer listener.Close()
-	fmt.Println("Server is listening on :8888")
+	fmt.Println("Server is listening on :9090")
 
 	for {
 		conn, err := listener.Accept()
@@ -62,6 +62,7 @@ func handleConnection(conn net.Conn) {
 
 		// 메시지 처리
 		processMessage(message, &conn)
+
 	}
 }
 
