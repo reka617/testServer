@@ -2,8 +2,8 @@ package behavior
 
 import (
 	"math"
+	"net"
 	"time"
-	manager "testServer/Manager"
 )
 
 // 행동 트리의 상태를 나타내는 상수
@@ -22,12 +22,24 @@ type Node interface {
 
 // 몬스터 정보를 담는 구조체
 type Monster struct {
-	X, Z float32
-	HP   int
-	Target  *manager.Player
-	Path    []Point
-	PathIdx int
+	X, Z      float32
+	HP        int
+	Target    *Player
+	Path      []Point
+	PathIdx   int
 	MonsterId int32
+}
+
+// Player represents a single player with some attributes
+type Player struct {
+	ID        int
+	Name      string
+	Age       int
+	Conn      *net.Conn
+	X         float32
+	Y         float32
+	Z         float32
+	RotationY float32
 }
 
 // 위치 정보를 담는 구조체
@@ -111,7 +123,7 @@ func (p *Patrol) Execute() Status {
 // 플레이어 감지를 담당하는 노드
 type DetectPlayer struct {
 	monster *Monster
-	_range   float32
+	_range  float32
 }
 
 func NewDetectPlayer(monster *Monster, detectRange float32) *DetectPlayer {
@@ -124,7 +136,7 @@ func (d *DetectPlayer) Execute() Status {
 	}
 
 	dist := distance(d.monster.X, d.monster.Z, d.monster.Target.X, d.monster.Target.Y)
-	if dist <= d.range {
+	if dist <= d._range {
 		return Success
 	}
 	return Failure

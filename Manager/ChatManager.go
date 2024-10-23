@@ -5,6 +5,7 @@ import (
 	"log"
 
 	pb "testServer/Messages"
+	behave "testServer/behavior"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -13,7 +14,7 @@ var chatManager *ChatManager
 
 // PlayerManager manages a list of playersH
 type ChatManager struct {
-	players map[int]Player
+	players map[int]behave.Player
 	nextID  int
 }
 
@@ -21,7 +22,7 @@ type ChatManager struct {
 func GetChatManager() *ChatManager {
 	if chatManager == nil {
 		chatManager = &ChatManager{
-			players: make(map[int]Player),
+			players: make(map[int]behave.Player),
 			nextID:  1,
 		}
 	}

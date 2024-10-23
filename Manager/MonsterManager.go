@@ -10,7 +10,7 @@ var monsterManager *MonsterManager
 
 // PlayerManager manages a list of players
 type MonsterManager struct {
-	monsters map[string]*behavior.Monster
+	monsters map[int32]*behavior.Monster
 	nextID   int32
 }
 
@@ -18,7 +18,7 @@ type MonsterManager struct {
 func GetMonsterManager() *MonsterManager {
 	if monsterManager == nil {
 		monsterManager = &MonsterManager{
-			monsters: make(map[string]*behavior.Monster),
+			monsters: make(map[int32]*behavior.Monster),
 			nextID:   1,
 		}
 	}

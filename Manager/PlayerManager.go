@@ -7,27 +7,16 @@ import (
 	"net"
 
 	pb "testServer/Messages"
+	behave "testServer/behavior"
 
 	"google.golang.org/protobuf/proto"
 )
 
 var playerManager *PlayerManager
 
-// Player represents a single player with some attributes
-type Player struct {
-	ID        int
-	Name      string
-	Age       int
-	Conn      *net.Conn
-	X         float32
-	Y         float32
-	Z         float32
-	RotationY float32
-}
-
 // PlayerManager manages a list of players
 type PlayerManager struct {
-	players map[string]*Player
+	players map[string]*behave.Player
 	nextID  int
 }
 
@@ -35,7 +24,7 @@ type PlayerManager struct {
 func GetPlayerManager() *PlayerManager {
 	if playerManager == nil {
 		playerManager = &PlayerManager{
-			players: make(map[string]*Player),
+			players: make(map[string]*behave.Player),
 			nextID:  1,
 		}
 	}
@@ -44,8 +33,8 @@ func GetPlayerManager() *PlayerManager {
 }
 
 // AddPlayer adds a new player to the manager
-func (pm *PlayerManager) AddPlayer(name string, age int, conn *net.Conn) *Player {
-	player := Player{
+func (pm *PlayerManager) AddPlayer(name string, age int, conn *net.Conn) *behave.Player {
+	player := behave.Player{
 		ID:        pm.nextID,
 		Name:      name,
 		Age:       age,
@@ -168,7 +157,7 @@ func (pm *PlayerManager) MovePlayer(p *pb.GameMessage_PlayerPosition) {
 }
 
 // GetPlayer retrieves a player by ID
-func (pm *PlayerManager) GetPlayer(id string) (*Player, error) {
+func (pm *PlayerManager) GetPlayer(id string) (*behave.Player, error) {
 	player, exists := pm.players[id]
 	if !exists {
 		return nil, errors.New("player not found")
@@ -202,8 +191,8 @@ func (pm *PlayerManager) RemovePlayer(id string) error {
 }
 
 // ListPlayers returns all players in the manager
-func (pm *PlayerManager) ListPlayers() []*Player {
-	playerList := []*Player{}
+func (pm *PlayerManager) ListPlayers() []*behave.Player {
+	playerList := []*behave.Player{}
 	for _, player := range pm.players {
 		playerList = append(playerList, player)
 	}
