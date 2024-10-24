@@ -9,20 +9,20 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type NetManager struct {
+type NetworkManager struct {
 }
 
-var netManager *NetManager
+var netManager *NetworkManager
 
-func GetNetManager() *NetManager {
+func GetNetManager() *NetworkManager {
 	if netManager == nil {
-		netManager = &NetManager{}
+		netManager = &NetworkManager{}
 	}
 
 	return netManager
 }
 
-func (nm *NetManager) MakePacket(msg *pb.GameMessage) []byte {
+func (nm *NetworkManager) MakePacket(msg *pb.GameMessage) []byte {
 	response, err := proto.Marshal(msg)
 	if err != nil {
 		log.Printf("Failed to marshal response: %v", err)

@@ -2,11 +2,11 @@ package behavior
 
 import (
 	"math"
-	"net"
+	pb "testServer/Messages"
+	"testServer/common"
 	"time"
 )
 
-// 행동 트리의 상태를 나타내는 상수
 type Status int
 
 const (
@@ -15,39 +15,10 @@ const (
 	Running
 )
 
-// Node 인터페이스 - 모든 노드가 구현해야 함
 type Node interface {
 	Execute() Status
 }
 
-// 몬스터 정보를 담는 구조체
-type Monster struct {
-	X, Z      float32
-	HP        int
-	Target    *Player
-	Path      []Point
-	PathIdx   int
-	MonsterId int32
-}
-
-// Player represents a single player with some attributes
-type Player struct {
-	ID        int
-	Name      string
-	Age       int
-	Conn      *net.Conn
-	X         float32
-	Y         float32
-	Z         float32
-	RotationY float32
-}
-
-// 위치 정보를 담는 구조체
-type Point struct {
-	X, Y float32
-}
-
-// Sequence 노드 - 자식 노드들을 순차적으로 실행
 type Sequence struct {
 	children []Node
 }
@@ -68,7 +39,6 @@ func (s *Sequence) Execute() Status {
 	return Success
 }
 
-// Selector 노드 - 자식 노드들 중 하나라도 성공할 때까지 실행
 type Selector struct {
 	children []Node
 }
@@ -89,69 +59,58 @@ func (s *Selector) Execute() Status {
 	return Failure
 }
 
-// 순찰 행동을 담당하는 노드
-type Patrol struct {
-	monster *Monster
-}
-
-func NewPatrol(monster *Monster) *Patrol {
-	return &Patrol{monster: monster}
-}
-
-func (p *Patrol) Execute() Status {
-	// 현재 목표 지점까지의 거리 계산
-	currentPoint := p.monster.Path[p.monster.PathIdx]
-	dist := distance(p.monster.X, p.monster.Z, currentPoint.X, currentPoint.Y)
-
-	// 목표 지점에 도달했으면 다음 지점으로
-	if dist < 1.0 {
-		p.monster.PathIdx = (p.monster.PathIdx + 1) % len(p.monster.Path)
-		return Success
-	}
-
-	// 목표 지점을 향해 이동
-	speed := float32(2.0)
-	dx := currentPoint.X - p.monster.X
-	dy := currentPoint.Y - p.monster.Z
-	norm := float32(math.Sqrt(float64(dx*dx + dy*dy)))
-	p.monster.X += (dx / norm) * speed
-	p.monster.Z += (dy / norm) * speed
-
-	return Running
-}
-
-// 플레이어 감지를 담당하는 노드
 type DetectPlayer struct {
-	monster *Monster
-	_range  float32
+	monster common.IMonster
+	range_  float32
+	p       common.IPlayerManager
+	n       common.INetworkManager
 }
 
-func NewDetectPlayer(monster *Monster, detectRange float32) *DetectPlayer {
-	return &DetectPlayer{monster: monster, _range: detectRange}
+func (d *DetectPlayer) FindTarget() *common.Point {
+	if len(d.p.ListPoints()) > 0 {
+		return d.p.ListPoints()[0]
+	}
+	return nil
+}
+
+func NewDetectPlayer(monster common.IMonster, range_ float32, p common.IPlayerManager, n common.INetworkManager) *DetectPlayer {
+	return &DetectPlayer{
+		monster: monster,
+		range_:  range_,
+		p:       p,
+		n:       n,
+	}
 }
 
 func (d *DetectPlayer) Execute() Status {
-	if d.monster.Target == nil {
-		return Failure
+	target := d.monster.GetTarget()
+	if target == nil {
+		target = d.FindTarget()
+		if target == nil {
+			return Failure
+		}
+
+		d.monster.SetTarget(target)
 	}
 
-	dist := distance(d.monster.X, d.monster.Z, d.monster.Target.X, d.monster.Target.Y)
-	if dist <= d._range {
+	pos := d.monster.GetPosition()
+	dist := distance(pos.X, pos.Z, target.X, target.Z)
+
+	if dist <= d.range_ {
 		return Success
 	}
 	return Failure
 }
 
-// 공격 행동을 담당하는 노드
 type Attack struct {
-	monster     *Monster
+	monster     common.IMonster
 	attackRange float32
 	damage      int
 	lastAttack  time.Time
 	cooldown    time.Duration
 }
 
-func NewAttack(monster *Monster, attackRange float32, damage int, cooldown time.Duration) *Attack {
+func NewAttack(monster common.IMonster, attackRange float32, damage int, cooldown time.Duration) *Attack {
 	return &Attack{
 		monster:     monster,
 		attackRange: attackRange,
@@ -161,59 +120,127 @@ func NewAttack(monster *Monster, attackRange float32, damage int, cooldown time.
 }
 
 func (a *Attack) Execute() Status {
-	if a.monster.Target == nil {
+	if a.monster.IsDead() {
 		return Failure
 	}
 
-	// 공격 범위 확인
-	dist := distance(a.monster.X, a.monster.Z, a.monster.Target.X, a.monster.Target.Y)
+	target := a.monster.GetTarget()
+	if target == nil {
+		return Failure
+	}
+
+	pos := a.monster.GetPosition()
+	dist := distance(pos.X, pos.Z, target.X, target.Z)
 	if dist > a.attackRange {
 		return Failure
 	}
 
-	// 쿨다운 확인
 	now := time.Now()
 	if now.Sub(a.lastAttack) < a.cooldown {
 		return Running
 	}
 
-	// 공격 실행
-	//a.monster.Target.HP -= a.damage
+	// 실제 공격 로직 구현
+	// 여기서는 예시로 데미지만 처리
+	currentHealth := a.monster.GetHealth()
+	a.monster.SetHealth(currentHealth - a.damage)
 	a.lastAttack = now
+
 	return Success
 }
 
-// 추적 행동을 담당하는 노드
 type Chase struct {
-	monster *Monster
+	monster common.IMonster
 	speed   float32
+
+	p common.IPlayerManager
+	n common.INetworkManager
 }
 
-func NewChase(monster *Monster, speed float32) *Chase {
-	return &Chase{monster: monster, speed: speed}
+func NewChase(monster common.IMonster, speed float32, p common.IPlayerManager, n common.INetworkManager) *Chase {
+	return &Chase{monster: monster, speed: speed, p: p, n: n}
 }
 
 func (c *Chase) Execute() Status {
-	if c.monster.Target == nil {
+	target := c.monster.GetTarget()
+	if target == nil {
 		return Failure
 	}
 
-	// 목표를 향해 이동
-	dx := c.monster.Target.X - c.monster.X
-	dy := c.monster.Target.Y - c.monster.Z
-	norm := float32(math.Sqrt(float64(dx*dx + dy*dy)))
+	println(target.X, target.Z)
 
-	// 이미 충분히 가까우면 성공
-	if norm < 1.0 {
+	pos := c.monster.GetPosition()
+	dx := target.X - pos.X
+	dy := target.Z - pos.Z
+	dist := float32(math.Sqrt(float64(dx*dx + dy*dy)))
+
+	if dist < 0.1 {
 		return Success
 	}
 
-	c.monster.X += (dx / norm) * c.speed
-	c.monster.Z += (dy / norm) * c.speed
+	// 정규화된 방향으로 이동
+	newX := pos.X + (dx/dist)*0.01
+	newZ := pos.Z + (dy/dist)*0.01
+	c.monster.SetPosition(newX, newZ)
+
+	// 내가 로그인 되었음을 나한테 알려준다.
+	MonsterMove := &pb.GameMessage{
+		Message: &pb.GameMessage_MoveMonster{
+			MoveMonster: &pb.MoveMonster{
+				X:         newX,
+				Z:         newZ,
+				MonsterId: int32(c.monster.GetID()),
+			},
+		},
+	}
+
+	// 이 코드를 들어온 유저를 제외한 플레이어들에게 스폰시켜달라고 한다.
+	c.p.Broadcast(MonsterMove)
+
 	return Running
 }
 
-// 거리 계산 유틸리티 함수
+type Patrol struct {
+	monster common.IMonster
+	speed   float32
+}
+
+func NewPatrol(monster common.IMonster, speed float32) *Patrol {
+	return &Patrol{
+		monster: monster,
+		speed:   speed,
+	}
+}
+
+func (p *Patrol) Execute() Status {
+	pos := p.monster.GetPosition()
+	path := p.monster.GetPath()
+	if len(path) == 0 {
+		return Failure
+	}
+
+	currentIdx := p.monster.GetPathIndex()
+	target := path[currentIdx]
+
+	dx := target.X - pos.X
+	dy := target.Z - pos.Z
+	dist := float32(math.Sqrt(float64(dx*dx + dy*dy)))
+
+	if dist < 0.1 {
+		// 다음 경로 포인트로 이동
+		nextIdx := (currentIdx + 1) % len(path)
+		p.monster.SetPathIndex(nextIdx)
+		return Success
+	}
+
+	// 현재 목표 지점을 향해 이동
+	newX := pos.X + (dx/dist)*p.speed
+	newY := pos.Z + (dy/dist)*p.speed
+	p.monster.SetPosition(newX, newY)
+
+	return Running
+}
+
 func distance(x1, y1, x2, y2 float32) float32 {
 	dx := x2 - x1
 	dy := y2 - y1

@@ -7,16 +7,32 @@ import (
 	"net"
 
 	pb "testServer/Messages"
-	behave "testServer/behavior"
+	"testServer/common"
 
 	"google.golang.org/protobuf/proto"
 )
+
+// 위치 정보를 담는 구조체
+type Point struct {
+	X, Y float32
+}
+
+// Player represents a single player with some attributes
+type Player struct {
+	ID        int
+	Name      string
+	Age       int
+	Conn      *net.Conn
+	Y         float32
+	RotationY float32
+	Point     *common.Point
+}
 
 var playerManager *PlayerManager
 
 // PlayerManager manages a list of players
 type PlayerManager struct {
-	players map[string]*behave.Player
+	players map[string]*Player
 	nextID  int
 }
 
@@ -24,7 +40,7 @@ type PlayerManager struct {
 func GetPlayerManager() *PlayerManager {
 	if playerManager == nil {
 		playerManager = &PlayerManager{
-			players: make(map[string]*behave.Player),
+			players: make(map[string]*Player),
 			nextID:  1,
 		}
 	}
@@ -32,16 +48,24 @@ func GetPlayerManager() *PlayerManager {
 	return playerManager
 }
 
+func (pm *PlayerManager) Broadcast(sg *pb.GameMessage) {
+	for _, p := range pm.players {
+
+		response := GetNetManager().MakePacket(sg)
+
+		(*p.Conn).Write(response)
+	}
+}
+
 // AddPlayer adds a new player to the manager
-func (pm *PlayerManager) AddPlayer(name string, age int, conn *net.Conn) *behave.Player {
-	player := behave.Player{
+func (pm *PlayerManager) AddPlayer(name string, age int, conn *net.Conn) *Player {
+	player := Player{
 		ID:        pm.nextID,
 		Name:      name,
 		Age:       age,
 		Conn:      conn,
-		X:         0,
+		Point:     &common.Point{X: 0, Z: 0},
 		Y:         0,
-		Z:         0,
 		RotationY: 0,
 	}
 
@@ -52,9 +76,9 @@ func (pm *PlayerManager) AddPlayer(name string, age int, conn *net.Conn) *behave
 	myPlayerSapwn := &pb.GameMessage{
 		Message: &pb.GameMessage_SpawnMyPlayer{
 			SpawnMyPlayer: &pb.SpawnMyPlayer{
-				X:         player.X,
+				X:         player.Point.X,
 				Y:         player.Y,
-				Z:         player.Z,
+				Z:         player.Point.Z,
 				RotationY: player.RotationY,
 			},
 		},
@@ -79,13 +103,21 @@ func (pm *PlayerManager) AddPlayer(name string, age int, conn *net.Conn) *behave
 	response := GetNetManager().MakePacket(myPlayerSapwn)
 	(*player.Conn).Write(response)
 
+	for _, m := range GetMonsterManager().monsters {
+		MonsterSapwn := &pb.GameMessage{
+			Message: &pb.GameMessage_SpawnMonster{SpawnMonster: &pb.SpawnMonster{X: m.X, Z: m.Z, MonsterId: int32(m.ID)}},
+		}
+		response := GetNetManager().MakePacket(MonsterSapwn)
+		(*player.Conn).Write(response)
+	}
+
 	otherPlayerSpawnPacket := &pb.GameMessage{
 		Message: &pb.GameMessage_SpawnOtherPlayer{
 			SpawnOtherPlayer: &pb.SpawnOtherPlayer{
 				PlayerId:  name,
-				X:         player.X,
+				X:         player.Point.X,
 				Y:         player.Y,
-				Z:         player.Z,
+				Z:         player.Point.Z,
 				RotationY: player.RotationY,
 			},
 		},
@@ -112,9 +144,9 @@ func (pm *PlayerManager) AddPlayer(name string, age int, conn *net.Conn) *behave
 			Message: &pb.GameMessage_SpawnOtherPlayer{
 				SpawnOtherPlayer: &pb.SpawnOtherPlayer{
 					PlayerId:  p.Name,
-					X:         p.X,
+					X:         p.Point.X,
 					Y:         p.Y,
-					Z:         p.Z,
+					Z:         p.Point.Z,
 					RotationY: player.RotationY,
 				},
 			},
@@ -130,9 +162,9 @@ func (pm *PlayerManager) AddPlayer(name string, age int, conn *net.Conn) *behave
 
 func (pm *PlayerManager) MovePlayer(p *pb.GameMessage_PlayerPosition) {
 
-	pm.players[p.PlayerPosition.PlayerId].X = p.PlayerPosition.X
+	pm.players[p.PlayerPosition.PlayerId].Point.X = p.PlayerPosition.X
 	pm.players[p.PlayerPosition.PlayerId].Y = p.PlayerPosition.Y
-	pm.players[p.PlayerPosition.PlayerId].Z = p.PlayerPosition.Z
+	pm.players[p.PlayerPosition.PlayerId].Point.Z = p.PlayerPosition.Z
 	pm.players[p.PlayerPosition.PlayerId].RotationY = p.PlayerPosition.RotationY
 
 	response, err := proto.Marshal(&pb.GameMessage{
@@ -157,7 +189,7 @@ func (pm *PlayerManager) MovePlayer(p *pb.GameMessage_PlayerPosition) {
 }
 
 // GetPlayer retrieves a player by ID
-func (pm *PlayerManager) GetPlayer(id string) (*behave.Player, error) {
+func (pm *PlayerManager) GetPlayer(id string) (*Player, error) {
 	player, exists := pm.players[id]
 	if !exists {
 		return nil, errors.New("player not found")
@@ -191,10 +223,19 @@ func (pm *PlayerManager) RemovePlayer(id string) error {
 }
 
 // ListPlayers returns all players in the manager
-func (pm *PlayerManager) ListPlayers() []*behave.Player {
-	playerList := []*behave.Player{}
+func (pm *PlayerManager) ListPlayers() []*Player {
+	playerList := []*Player{}
 	for _, player := range pm.players {
 		playerList = append(playerList, player)
+	}
+	return playerList
+}
+
+// ListPlayers returns all players in the manager
+func (pm *PlayerManager) ListPoints() []*common.Point {
+	playerList := []*common.Point{}
+	for _, player := range pm.players {
+		playerList = append(playerList, player.Point)
 	}
 	return playerList
 }

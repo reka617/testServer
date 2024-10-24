@@ -1,16 +1,16 @@
 package manager
 
 import (
-	"testServer/behavior"
-
 	pb "testServer/Messages"
+	"testServer/common"
+	"time"
 )
 
 var monsterManager *MonsterManager
 
 // PlayerManager manages a list of players
 type MonsterManager struct {
-	monsters map[int32]*behavior.Monster
+	monsters map[int32]*Monster
 	nextID   int32
 }
 
@@ -18,7 +18,7 @@ type MonsterManager struct {
 func GetMonsterManager() *MonsterManager {
 	if monsterManager == nil {
 		monsterManager = &MonsterManager{
-			monsters: make(map[int32]*behavior.Monster),
+			monsters: make(map[int32]*Monster),
 			nextID:   1,
 		}
 	}
@@ -26,15 +26,26 @@ func GetMonsterManager() *MonsterManager {
 	return monsterManager
 }
 
-// AddPlayer adds a new player to the manager
-func (mm *MonsterManager) AddMonster(id int32) *behavior.Monster {
-	monster := behavior.Monster{
-		MonsterId: mm.nextID,
-		X:         0,
-		Z:         0,
-	}
+func (mm *MonsterManager) UpdateMonster() {
 
-	mm.monsters[id] = &monster
+	ticker := time.NewTicker(16 * time.Millisecond)
+	for {
+		select {
+		case <-ticker.C:
+			for _, m := range mm.monsters {
+				m.AI.Execute()
+			}
+		}
+	}
+}
+
+// AddPlayer adds a new player to the manager
+func (mm *MonsterManager) AddMonster(id int32) *Monster {
+	path := make([]common.Point, 0)
+
+	monster := NewMonster(0, 0, 0, 100, path)
+
+	mm.monsters[id] = monster
 	mm.nextID++
 
 	// 내가 로그인 되었음을 나한테 알려준다.
@@ -43,7 +54,7 @@ func (mm *MonsterManager) AddMonster(id int32) *behavior.Monster {
 			SpawnMonster: &pb.SpawnMonster{
 				X:         monster.X,
 				Z:         monster.Z,
-				MonsterId: monster.MonsterId,
+				MonsterId: int32(monster.ID),
 			},
 		},
 	}
@@ -55,5 +66,5 @@ func (mm *MonsterManager) AddMonster(id int32) *behavior.Monster {
 		(*p.Conn).Write(response)
 	}
 
-	return &monster
+	return monster
 }
