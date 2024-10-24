@@ -22,12 +22,16 @@ func main() {
 	defer listener.Close()
 	fmt.Println("Server is listening on :9090")
 
+	mg.GetMonsterManager().AddMonster(0)
+	go mg.GetMonsterManager().UpdateMonster()
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			log.Printf("Failed to accept connection: %v", err)
 			continue
 		}
+
 		go handleConnection(conn)
 	}
 }

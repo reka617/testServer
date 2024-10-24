@@ -57,8 +57,14 @@ message LogoutMessage {
 
 message SpawnMonster {
   float x = 1;
-  float z = 3;
-  int32 monsterId = 4;
+  float z = 2;
+  int32 monsterId = 3;
+}
+
+message MoveMonster {
+  float x = 1;
+  float z = 2;
+  int32 monsterId = 3;
 }
 
 message GameMessage {
@@ -71,5 +77,6 @@ message GameMessage {
     LogoutMessage logout = 6;
     PathTest pathTest = 7;
     SpawnMonster spawnMonster = 8;
+    MoveMonster moveMonster = 9;
   }
 } 
