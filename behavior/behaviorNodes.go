@@ -83,14 +83,10 @@ func NewDetectPlayer(monster common.IMonster, range_ float32, p common.IPlayerMa
 }
 
 func (d *DetectPlayer) Execute() Status {
-	target := d.monster.GetTarget()
+	target := d.FindTarget()
+	d.monster.SetTarget(target)
 	if target == nil {
-		target = d.FindTarget()
-		if target == nil {
-			return Failure
-		}
-
-		d.monster.SetTarget(target)
+		return Failure
 	}
 
 	pos := d.monster.GetPosition()
